@@ -12,6 +12,10 @@ app.post("/generate", async (req, res) => {
   try {
     const { prompt } = req.body;
 
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -20,36 +24,43 @@ app.post("/generate", async (req, res) => {
       },
       body: JSON.stringify({
         model: "openrouter/auto",
+        temperature: 0.7,
         messages: [
           {
             role: "system",
             content: `
-You are an expert web developer.
+You are an expert frontend developer.
 
 STRICT RULES:
-- Return ONLY valid HTML (no markdown)
-- Include CSS inside <style>
-- Include JavaScript inside <script>
-- No external libraries, CDN, or images
-- Everything must work offline
-- Clean UI, centered layout
+- Return ONLY pure HTML (no markdown, no explanation)
+- ALWAYS include <!DOCTYPE html>
+- Must include <html>, <head>, <body>
+- CSS must be inside <style>
+- JS must be inside <script>
+- No external libraries, CDNs, or images
+- No <link>, no <img>, no external scripts
+- Use simple layouts (flexbox only)
+- Avoid position:absolute, transform, or complex layouts
+- UI must be clean, centered, and responsive
+- No overlapping elements
 
-IMPORTANT:
-Always return FULL HTML like:
+OUTPUT FORMAT:
 
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<title>Generated Site</title>
 <style>
-/* CSS */
+/* Clean CSS */
 </style>
 </head>
 <body>
 
-<!-- UI -->
+<!-- Clean UI -->
 
 <script>
-// JS
+// Simple JS
 </script>
 
 </body>
@@ -58,7 +69,7 @@ Always return FULL HTML like:
           },
           {
             role: "user",
-            content: `Create a website: ${prompt}`
+            content: `Create a simple clean website: ${prompt}`
           }
         ]
       })
@@ -68,27 +79,51 @@ Always return FULL HTML like:
 
     let html = data.choices?.[0]?.message?.content || "";
 
-    // Clean AI output
+    // 🔧 CLEAN OUTPUT
     html = html
+      .replace(/```html/g, "")
       .replace(/```/g, "")
       .replace(/<img[\s\S]*?>/gi, "")
       .replace(/<link[\s\S]*?>/gi, "")
       .replace(/<script src="[\s\S]*?"><\/script>/gi, "")
+      .replace(/position\s*:\s*absolute/gi, "")
+      .replace(/transform\s*:[^;]+;/gi, "")
       .trim();
 
-    if (!html) {
-      html = "<h1>⚠️ AI failed. Try again.</h1>";
+    // ✅ VALIDATION CHECK
+    if (!html.includes("<html") || !html.includes("<body")) {
+      return res.json({
+        html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;text-align:center;padding:50px;">
+<h2>⚠️ Invalid HTML generated</h2>
+<p>Please try a simpler prompt</p>
+</body>
+</html>
+`
+      });
     }
 
     res.json({ html });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Generation failed" });
+    console.error("ERROR:", err.message);
+    res.status(500).json({
+      html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;text-align:center;padding:50px;">
+<h2>⚠️ Server Error</h2>
+<p>Try again later</p>
+</body>
+</html>
+`
+    });
   }
 });
 
-// Health check route (VERY IMPORTANT for Render)
+// ✅ Health check (important for Render)
 app.get("/", (req, res) => {
   res.send("AutoSite backend running 🚀");
 });
