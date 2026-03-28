@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -69,6 +68,7 @@ Always return FULL HTML like:
 
     let html = data.choices?.[0]?.message?.content || "";
 
+    // Clean AI output
     html = html
       .replace(/```/g, "")
       .replace(/<img[\s\S]*?>/gi, "")
@@ -87,5 +87,11 @@ Always return FULL HTML like:
     res.status(500).json({ error: "Generation failed" });
   }
 });
+
+// Health check route (VERY IMPORTANT for Render)
+app.get("/", (req, res) => {
+  res.send("AutoSite backend running 🚀");
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log("Server running"));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
